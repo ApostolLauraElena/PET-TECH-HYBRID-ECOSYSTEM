@@ -31,6 +31,10 @@ Ne dorim sa implementam un sistem hibrid (Auto-Feeder & Auto-Waterer) conceput p
  + Butoane Tactile
  + LED-uri colorate
 
-
+### Cerinte
++ Dozare programata: eliberarea hranei la ore fixe.
++ Monitorizare resurse: cantarirea in timp real a bolurilor folosind senzori de greutate si module HX711.
++ Calitatea apei: masurarea temperaturii apei si alertarea utilizatorului daca apa este prea calda.
++ Alerte sononore: buzzer-ul anunta finalizarea dozarii sau erori critice(rezervor gol).
 
 
