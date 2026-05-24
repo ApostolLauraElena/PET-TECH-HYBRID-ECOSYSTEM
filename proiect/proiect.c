@@ -1,91 +1,145 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "pico/stdlib.h"
-#include "hardware/adc.h"
+#include "hardware/pwm.h" 
 
-// --- CONFIGURARE PINI ---
-#define LED_ROSU    16
-#define LED_VERDE   17
-#define BTN_1       14
-#define BTN_2       15
-#define ADC_TEMP_PIN 28 
-#define TRIG_PIN    18
-#define ECHO_PIN    19
+#define MANCARE_SCK  16  
+#define MANCARE_DOUT 17  
 
-#define BETA 3950
-#define R0 10000
-#define T0 298.15
+#define APA_SCK  14  
+#define APA_DOUT 15  
 
-float citeste_temperatura(uint16_t raw_value) {
-    float rezistenta = 10000.0f * (4095.0f / (float)raw_value - 1.0f);
-    float temperatura_k;
-    temperatura_k = rezistenta / 10000.0f;
-    temperatura_k = log(temperatura_k);
-    temperatura_k /= 3950.0f;
-    temperatura_k += 1.0f / (25.0f + 273.15f);
-    temperatura_k = 1.0f / temperatura_k;
-    return temperatura_k - 273.15f;
+#define SERVO_PIN 13       
+#define RELEU_POMPA_PIN 18 
+
+#define FACTOR_MANCARE 818.82f
+#define FACTOR_APA     818.82f 
+
+long tara_mancare = 0; 
+long tara_apa = 0; 
+
+void set_servo_position(uint pin, uint pulse_width_us) {
+    pwm_set_gpio_level(pin, pulse_width_us);
+}
+
+void porneste_pompa() {
+    gpio_set_dir(RELEU_POMPA_PIN, GPIO_OUT);
+    gpio_put(RELEU_POMPA_PIN, 0); 
+}
+
+void opreste_pompa() {
+    gpio_set_dir(RELEU_POMPA_PIN, GPIO_IN); 
+    gpio_disable_pulls(RELEU_POMPA_PIN);
+}
+
+long read_hx711(uint pin_sck, uint pin_dout) {
+    while (gpio_get(pin_dout)); 
+
+    long value = 0;
+    for (int i = 0; i < 24; i++) {
+        gpio_put(pin_sck, 1);
+        sleep_us(1);
+        value = (value << 1) | gpio_get(pin_dout);
+        gpio_put(pin_sck, 0);
+        sleep_us(1);
+    }
+
+    gpio_put(pin_sck, 1);
+    sleep_us(1);
+    gpio_put(pin_sck, 0);
+    sleep_us(1);
+
+    if (value & 0x800000) value |= 0xFF000000;
+    
+    return value;
 }
 
 int main() {
     stdio_init_all();
 
-    gpio_init(LED_ROSU);
-    gpio_set_dir(LED_ROSU, GPIO_OUT);
-    gpio_init(LED_VERDE);
-    gpio_set_dir(LED_VERDE, GPIO_OUT);
+    gpio_set_function(SERVO_PIN, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(SERVO_PIN);
+    pwm_config config = pwm_get_default_config();
+    pwm_config_set_clkdiv(&config, 150.0f); 
+    pwm_config_set_wrap(&config, 20000);   
+    pwm_init(slice_num, &config, true);
+    set_servo_position(SERVO_PIN, 1500); 
 
-    gpio_init(BTN_1);
-    gpio_set_dir(BTN_1, GPIO_IN);
-    gpio_init(BTN_2);
-    gpio_set_dir(BTN_2, GPIO_IN);
+    gpio_init(RELEU_POMPA_PIN);
+    opreste_pompa(); 
 
-    gpio_init(TRIG_PIN);
-    gpio_set_dir(TRIG_PIN, GPIO_OUT);
-    gpio_init(ECHO_PIN);
-    gpio_set_dir(ECHO_PIN, GPIO_IN);
+    gpio_init(MANCARE_SCK); gpio_set_dir(MANCARE_SCK, GPIO_OUT); gpio_put(MANCARE_SCK, 0); 
+    gpio_init(MANCARE_DOUT); gpio_set_dir(MANCARE_DOUT, GPIO_IN);
 
-    adc_init();
-    adc_gpio_init(ADC_TEMP_PIN);
-    adc_select_input(2); 
+    gpio_init(APA_SCK); gpio_set_dir(APA_SCK, GPIO_OUT); gpio_put(APA_SCK, 0); 
+    gpio_init(APA_DOUT); gpio_set_dir(APA_DOUT, GPIO_IN);
 
+    sleep_ms(3000); 
+    printf("\nSe face Auto-Tara pentru AMBELE boluri. NU le atingeți!\n");
+
+    long suma_mancare = 0;
+    long suma_apa = 0;
+    for(int i = 0; i < 10; i++) {
+        suma_mancare += read_hx711(MANCARE_SCK, MANCARE_DOUT);
+        suma_apa += read_hx711(APA_SCK, APA_DOUT);
+        sleep_ms(50);
+    }
+    tara_mancare = suma_mancare / 10;
+    tara_apa = suma_apa / 10;
+    
     while (true) {
-        uint16_t raw = adc_read();
-        float resistance = R0 * (4095.0f / (float)raw - 1.0f);
-        float steinhart;
-        steinhart = resistance / R0;
-        steinhart = log(steinhart);
-        steinhart /= BETA;
-        steinhart += 1.0f / T0;
-        steinhart = 1.0f / steinhart;
-        float celsius = steinhart - 273.15f;
+        long val_mancare = read_hx711(MANCARE_SCK, MANCARE_DOUT);
+        float grame_mancare = (float)labs(val_mancare - tara_mancare) / FACTOR_MANCARE;
+        if (grame_mancare < 1.5f) grame_mancare = 0.0f; 
 
-        gpio_put(TRIG_PIN, 1);
-        sleep_us(10);
-        gpio_put(TRIG_PIN, 0);
+        long val_apa = read_hx711(APA_SCK, APA_DOUT);
+        float ml_apa = (float)labs(val_apa - tara_apa) / FACTOR_APA;
+        if (ml_apa < 1.5f) ml_apa = 0.0f; 
 
-        while (gpio_get(ECHO_PIN) == 0); // Asteptam ecoul
-        absolute_time_t start = get_absolute_time();
-        while (gpio_get(ECHO_PIN) == 1); // Masuram durata
-        absolute_time_t end = get_absolute_time();
+        printf("Mâncare: %.1f g | Apă: %.1f ml\n", grame_mancare, ml_apa); 
 
-        uint64_t diff = absolute_time_diff_us(start, end);
-        float distanta = (float)diff * 0.0343f / 2.0f;
-
-        printf("\rTEMP: %.2f C | NIVEL: %.2f cm    ", celsius, distanta);
-        
-        if (celsius > 30.0f || distanta > 15.0f) {
-            if (celsius > 30.0f) printf(" 🔥 CALD!");
-            if (distanta > 15.0f) printf(" 💧 GOL!");
+        if (grame_mancare < 15.0f) {
+            printf("Se deschide recipientul...\n");
+            set_servo_position(SERVO_PIN, 1800); 
             
-            gpio_put(LED_ROSU, 1); 
-            gpio_put(LED_VERDE, 0);
-        }
-        else {
-            gpio_put(LED_ROSU, 0);
-            gpio_put(LED_VERDE, 1); 
+            while (true) {
+                long val = read_hx711(MANCARE_SCK, MANCARE_DOUT);
+                grame_mancare = (float)labs(val - tara_mancare) / FACTOR_MANCARE;
+                if (grame_mancare >= 50.0f) {
+                    printf("Ținta de 50g mâncare atinsă!\n");
+                    break; 
+                }
+                sleep_ms(100); 
+            }
+            printf("Se închide recipientul de mâncare.\n");
+            set_servo_position(SERVO_PIN, 1500); 
+            sleep_ms(2000); 
         }
 
-        sleep_ms(200); 
+        if (ml_apa < 20.0f) {
+            printf("Pornim pompa...\n");
+            porneste_pompa(); 
+            
+            while (true) {
+                long val = read_hx711(APA_SCK, APA_DOUT);
+                ml_apa = (float)labs(val - tara_apa) / FACTOR_APA;
+                if (ml_apa < 1.5f) ml_apa = 0.0f;
+
+                printf("Apa: %.1f ml\n", ml_apa);
+
+                if (ml_apa >= 50.0f) { 
+                    printf("Ținta de 50ml apă atinsă!\n");
+                    break; 
+                }
+                sleep_ms(100); 
+            }
+            
+            printf("Se oprește pompa de apă.\n");
+            opreste_pompa(); 
+            sleep_ms(2000); 
+        }
+
+        sleep_ms(500); 
     }
 }
