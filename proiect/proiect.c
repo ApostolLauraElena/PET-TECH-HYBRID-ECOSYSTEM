@@ -6,10 +6,14 @@
 #include "hardware/pwm.h" 
 
 #define LED_MANCARE 0
+#define TRIG_MANCARE 2
+#define ECHO_MANCARE 3
 #define MANCARE_SCK  16  
 #define MANCARE_DOUT 17
 
 #define LED_APA 1
+//#define TRIG_APA 4
+//#define ECHO_APA 5
 #define APA_SCK    14  
 #define APA_DOUT   15  
 
@@ -18,13 +22,13 @@
 
 #define FACTOR_MANCARE 818.82f
 #define FACTOR_APA     818.82f 
-
 #define TINTA_MANCARE  50.0f
 #define TINTA_APA      50.0f
 #define ANTICIPARE_MANCARE 43.0f 
+#define PRAG_RECIPIENT_MANCARE_CM 16.0f
 
 #define TIMEOUT_POMPA_MS 15000 
-
+#define TIMEOUT_ULTRASONIC_US 30000
 // =========================================================================
 // MODIFICĂ AICI DACĂ LOGICA POMPEI ESTE INVERSATĂ:
 // Dacă pompa pornește singură la boot, schimbă PONRIT cu 1 și OPRIT cu 0
@@ -35,9 +39,42 @@
 // VALORI PWM CONFIGURATE PENTRU CURSĂ MAXIMĂ (Ajustabile)
 #define SERVO_INCHIS   1000  // Poziția de repaus / clapetă închisă (1ms)
 #define SERVO_DESCHIS  2000  // Poziția de deschidere maximă (2ms)
-
 long tara_mancare = 0; 
 long tara_apa = 0; 
+
+void init_senzor_mancare() {
+    gpio_init(TRIG_MANCARE);
+    gpio_set_dir(TRIG_MANCARE, GPIO_OUT);
+    gpio_put(TRIG_MANCARE, 0);
+
+    gpio_init(ECHO_MANCARE);
+    gpio_set_dir(ECHO_MANCARE, GPIO_IN);
+}
+
+float citeste_distanta_mancare_cm() {
+    gpio_put(TRIG_MANCARE, 0);
+    sleep_us(2);
+    gpio_put(TRIG_MANCARE, 1);
+    sleep_us(10);
+    gpio_put(TRIG_MANCARE, 0);
+
+    absolute_time_t timeout_start = get_absolute_time();
+    while (!gpio_get(ECHO_MANCARE)) {
+        if (absolute_time_diff_us(timeout_start, get_absolute_time()) > TIMEOUT_ULTRASONIC_US) {
+            return -1.0f;
+        }
+    }
+
+    absolute_time_t echo_start = get_absolute_time();
+    while (gpio_get(ECHO_MANCARE)) {
+        if (absolute_time_diff_us(echo_start, get_absolute_time()) > TIMEOUT_ULTRASONIC_US) {
+            return -1.0f;
+        }
+    }
+
+    int64_t durata_us = absolute_time_diff_us(echo_start, get_absolute_time());
+    return (float)durata_us / 58.0f;
+}
 
 void set_servo_position(uint pin, uint pulse_width_us) {
     pwm_set_gpio_level(pin, pulse_width_us);
@@ -96,11 +133,14 @@ int main() {
     // Configurare HX711 pini
     gpio_init(MANCARE_SCK); gpio_set_dir(MANCARE_SCK, GPIO_OUT); gpio_put(MANCARE_SCK, 0); 
     gpio_init(MANCARE_DOUT); gpio_set_dir(MANCARE_DOUT, GPIO_IN);
-    gpio_init(APA_SCK); gpio_set_dir(APA_SCK, GPIO_OUT); gpio_put(APA_SCK, 0); 
+     gpio_init(APA_SCK); gpio_set_dir(APA_SCK, GPIO_OUT); gpio_put(APA_SCK, 0); 
     gpio_init(APA_DOUT); gpio_set_dir(APA_DOUT, GPIO_IN);
+
+    init_senzor_mancare();
 
     gpio_init(LED_MANCARE);
     gpio_set_dir(LED_MANCARE, GPIO_OUT);
+    gpio_put(LED_MANCARE, false);
 
     gpio_init(LED_APA);
     gpio_set_dir(LED_APA, GPIO_OUT);
@@ -128,7 +168,7 @@ int main() {
     }
     printf("[SISTEM] Calibrare finalizată cu succes.\n");
 
-    gpio_put(LED_MANCARE, true);
+    gpio_put(LED_MANCARE, false);
     gpio_put(LED_APA, true);
     while (true) {
         // Citiri senzori
@@ -139,6 +179,17 @@ int main() {
         long val_apa = read_hx711(APA_SCK, APA_DOUT);
         float ml_apa = (val_apa != -999999) ? (float)(val_apa - tara_apa) / FACTOR_APA : 0.0f;
         if (ml_apa < 0.0f) ml_apa = 0.0f; 
+
+        float distanta_recipient_cm = citeste_distanta_mancare_cm();
+        if (distanta_recipient_cm >= 0.0f) {
+            bool recipient_gol = distanta_recipient_cm > PRAG_RECIPIENT_MANCARE_CM;
+            gpio_put(LED_MANCARE, recipient_gol);
+            printf("Recipient mancare: %.1f cm | LED_MANCARE: %s\n",
+                   distanta_recipient_cm,
+                   recipient_gol ? "APRINS" : "STINS");
+        } else {
+            printf("Recipient mancare: citire invalida ultrasonic\n");
+        }
 
         printf("Monitorizare -> Mâncare: %.1f g | Apă: %.1f ml\n", grame_mancare, ml_apa); 
 
