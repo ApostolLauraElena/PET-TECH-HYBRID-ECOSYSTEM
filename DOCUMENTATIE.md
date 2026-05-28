@@ -14,8 +14,7 @@ Pe langa functionarea automata, sistemul permite actionarea manuala a clapetei d
 - automatizarea alimentarii cu mancare si apa;
 - masurarea separata a greutatii pentru bolul de mancare si bolul de apa;
 - avertizarea utilizatorului daca temperatura apei depaseste pragul stabilit;
-- transmiterea periodica a datelor de stare prin Bluetooth;
-- pastrarea unei structuri software modulare, usor de intretinut.
+- transmiterea periodica a datelor de stare prin Bluetooth.
 
 ## 3. Platforma si dependinte
 
@@ -45,6 +44,8 @@ set(PICO_BOARD pico2_w CACHE STRING "Board type")
 ```
 
 ## 4. Conexiuni hardware
+<img width="1168" height="815" alt="image" src="https://github.tuiasi.ro/user-attachments/assets/b5425d27-78ee-41f0-8b58-967ad66c7887" />
+
 
 Pinii sunt definiti centralizat in `config.h`.
 
@@ -136,7 +137,7 @@ Acest modul contine comportamentul aplicatiei:
 - control automat pentru apa;
 - pastrarea valorilor curente pentru transmiterea prin Bluetooth.
 
-Calibrarea dureaza aproximativ `3 s` si se face dupa o asteptare initiala de `2 s`. In timpul calibrarii, bolurile nu trebuie atinse, deoarece valorile masurate devin referinta de zero.
+Calibrarea dureaza aproximativ `3s` si se face dupa o asteptare initiala de `2s`. In timpul calibrarii, bolurile nu trebuie atinse, deoarece valorile masurate devin referinta de zero.
 
 ### `bluetooth.c`
 
@@ -180,8 +181,8 @@ flowchart TD
 
 La pornire, sistemul calculeaza tara pentru fiecare cantar:
 
-1. asteapta `2 s`;
-2. timp de `3 s`, citeste repetat cele doua module HX711;
+1. asteapta `2s`;
+2. timp de `3s`, citeste repetat cele doua module HX711;
 3. calculeaza media valorilor citite;
 4. foloseste media ca referinta de zero.
 
