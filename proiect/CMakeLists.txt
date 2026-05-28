@@ -35,7 +35,10 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(proiect proiect.c )
+add_executable(proiect proiect.c
+    hardware.c
+    logic.c
+    bluetooth.c)
 
 pico_set_program_name(proiect "proiect")
 pico_set_program_version(proiect "0.1")
@@ -48,7 +51,11 @@ pico_enable_stdio_usb(proiect 1)
 target_link_libraries(proiect
         pico_stdlib
         hardware_adc
-        hardware_pwm)
+        hardware_pwm
+        pico_btstack_classic
+        pico_btstack_cyw43
+        pico_cyw43_arch_none
+        )
 
 # Add the standard include files to the build
 target_include_directories(proiect PRIVATE
@@ -56,11 +63,9 @@ target_include_directories(proiect PRIVATE
 )
 
 # Add any user requested libraries
-target_link_libraries(proiect 
+target_link_libraries(proiect
         hardware_i2c
         hardware_dma
-        pico_cyw43_arch_lwip_threadsafe_background
         )
 
 pico_add_extra_outputs(proiect)
-
