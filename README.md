@@ -32,6 +32,19 @@ Dispozitivul transmite periodic starea prin Bluetooth Classic SPP, sub numele `P
 
 Documentatia tehnica detaliata este in [DOCUMENTATIE.md](DOCUMENTATIE.md).
 
+## Cerințe Funcționale
+1.	Sistemul trebuie să inițializeze componentele hardware: servo, pompă/releu, buton manual, senzori HX711, senzor de temperatură ADC și LED-uri.
+2.	Sistemul trebuie să calibreze automat bolurile de mâncare și apă la pornire, timp de aproximativ 3 secunde.
+3.	Sistemul trebuie să monitorizeze periodic cantitatea de mâncare, cantitatea de apă și temperatura apei.
+4.	Sistemul trebuie să permită alimentarea manuală cu mâncare prin apăsarea unui buton, deschizând clapeta servo cât timp butonul este apăsat.
+5.	Sistemul trebuie să dozeze automat mâncare când nivelul scade sub 15 g, deschizând clapeta până la pragul anticipat de 43 g sau până la timeout.
+
+##	Cerințe Non-Funcționale
+1.	Sistemul trebuie să folosească Pico SDK, BTStack, ADC și PWM pentru controlul componentelor.
+2.	Sistemul trebuie să actualizeze monitorizarea periodic, la aproximativ 500 ms.
+3.	Sistemul trebuie să evite valori negative pentru cantitățile măsurate, setându-le la 0.
+
+
 ## Build rapid
 
 Proiectul este configurat pentru placa `pico2_w` si Pico SDK 2.2.0.
