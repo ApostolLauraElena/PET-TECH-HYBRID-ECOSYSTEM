@@ -45,6 +45,8 @@ set(PICO_BOARD pico2_w CACHE STRING "Board type")
 ```
 
 ## 4. Conexiuni hardware
+<img width="1168" height="815" alt="image" src="https://github.tuiasi.ro/user-attachments/assets/b5425d27-78ee-41f0-8b58-967ad66c7887" />
+
 
 Pinii sunt definiti centralizat in `config.h`.
 
