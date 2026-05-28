@@ -1,40 +1,44 @@
 # Sistem de Hranire si Hidratare
 
-Membrii echipei:
- - Apostol Laura Elena
- - Gheorghiu Adelina Ioana
+Proiect embedded pentru Raspberry Pi Pico 2 W, realizat in C cu Pico SDK. Sistemul monitorizeaza nivelul de mancare, nivelul de apa si temperatura apei, apoi actioneaza automat un servomotor pentru dozarea mancarii si o pompa comandata prin releu pentru completarea apei.
 
-## Descriere proiect
+Dispozitivul transmite periodic starea prin Bluetooth Classic SPP, sub numele `Pico2W_Dozator`, astfel incat valorile curente sa poata fi citite de pe telefon sau dintr-o aplicatie terminal Bluetooth.
 
-Ne dorim sa implementam un sistem hibrid (Auto-Feeder & Auto-Waterer) conceput pentru a usura procesul de hranire si hidratare al animalelor de companie, oferind o interfata de monitorizare prin Bluetooth.
+## Functii principale
 
-## Obiective:
- + Dezvoltarea unui sistem de hrana autonom
- + Integrarea coerenta Hard si Soft folosind Pico C SDK
- + Replicarea unui sistem de dozare industriala
+- calibrare automata a senzorilor de greutate la pornire;
+- citirea a doua module HX711: unul pentru mancare si unul pentru apa;
+- citirea temperaturii apei prin ADC, folosind un senzor NTC;
+- dozare automata a mancarii cu servomotor;
+- completare automata a apei cu pompa;
+- control manual pentru clapeta de mancare;
+- avertizare LED cand temperatura apei depaseste pragul configurat;
+- transmitere status prin Bluetooth RFCOMM/SPP.
 
+## Structura proiectului
 
-## Componente Hardware
+| Fisier | Rol |
+| --- | --- |
+| `proiect.c` | Punctul de intrare al aplicatiei si bucla principala. |
+| `config.h` | Pini, praguri, factori de calibrare si valori pentru servo. |
+| `hardware.c` / `hardware.h` | Initializare pini, PWM, ADC, pompa, citire HX711 si temperatura. |
+| `logic.c` / `logic.h` | Logica de calibrare, monitorizare si dozare automata. |
+| `bluetooth.c` / `app_bluetooth.h` | Initializare Bluetooth Classic si transmitere status prin SPP. |
+| `btstack_config.h` | Configuratia BTstack pentru Bluetooth Classic. |
+| `lwipopts.h` | Configuratie lwIP necesara pentru Pico W/Pico 2 W. |
+| `CMakeLists.txt` | Configuratia de build pentru Pico SDK. |
 
- + Raspberry Pi Pico 2W
- + Modul HX711
- + Celula sarcina (1kg)
- + Servomotor SG90
- + Mini pompa de apa
- + Modul releu cu 1 canal
- + Senzor HC-SR04
- + Termistor NTC 10k
- + Buzzer Pasiv
- + Tranzistor 2N2222
- + Dioda 1N4007
- + Rezistoare
- + Butoane Tactile
- + LED-uri colorate
+## Documentatie completa
 
-### Cerinte
-+ Dozare programata: eliberarea hranei la ore fixe.
-+ Monitorizare resurse: cantarirea in timp real a bolurilor folosind senzori de greutate si module HX711.
-+ Calitatea apei: masurarea temperaturii apei si alertarea utilizatorului daca apa este prea calda.
-+ Alerte sononore: buzzer-ul anunta finalizarea dozarii sau erori critice(rezervor gol).
+Documentatia tehnica detaliata este in [DOCUMENTATIE.md](DOCUMENTATIE.md).
 
+## Build rapid
 
+Proiectul este configurat pentru placa `pico2_w` si Pico SDK 2.2.0.
+
+```powershell
+cmake -S . -B build
+cmake --build build
+```
+
+Dupa build, fisierul `.uf2` generat in directorul `build` se copiaza pe placa aflata in modul BOOTSEL.
